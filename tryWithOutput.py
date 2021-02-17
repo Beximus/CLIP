@@ -9,6 +9,7 @@ import json
 import glob
 import os
 import csv
+from datetime import datetime
 
 with open('imagenetClasses.json','r') as f:
     imagenet_classes = json.load(f)
@@ -47,13 +48,15 @@ def csvWriter(nameOfFile,rowData):
 
 def main():
     global imagenet_classes
+    now = datetime.now()
+    defaultcsvname = now.strftime("%d-%m-%Y-%H-%M-%S")+".csv"
 
     parser = argparse.ArgumentParser(description="score images against classifiers")
     parser.add_argument('--input-glob', default='CLIP.png',
                         help="input folder")
     parser.add_argument("--labels", default=None,
                         help="comma separated list of labels")
-    parser.add_argument("--name",default="testing.csv",
+    parser.add_argument("--name",default=defaultcsvname,
                         help="name the export folder")
 
     args = parser.parse_args()
@@ -87,7 +90,7 @@ def main():
         currentPath = os.path.join(ImagefolderPath+"/"+currentPicture)
         
         currentCSVrow = []
-        currentCSVrow.append(currentPath)
+        currentCSVrow.append(currentPicture)
         
         image = preprocess(Image.open(currentPath)).unsqueeze(0).to(device)
 
@@ -110,6 +113,7 @@ def main():
 
         if len(imagenet_classes) > 1000:
             print("\nScores for provided labels")
+            currentCSVrow.append("Scores for provided labels:")
             for j in range(1000,len(imagenet_classes)):
                 print(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f}")
                 currentCSVrow.append(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f}")
