@@ -11,14 +11,17 @@ import os
 import csv
 from datetime import datetime
 
+## IMPORTANT, ONLY RUN THIS IF THE FOLDER OF IMAGES HAS LESS THAN 15 IMAGES IN IT -- THIS CREATES AN IMAGE FILE AS WELL
+
+# --------- this imports the classses by default ---------- turning the template into search classes has not yet been arranged
+
 with open('imagenetClasses.json','r') as f:
     imagenet_classes = json.load(f)
 
 with open('imagenetTemplates.json','r') as g:
     imagenet_templates = json.load(g)
 
-# print(imagenet_classes)
-# print(imagenet_templates)
+# --------- this imports the classses by default ----------
 
 # ----------- ZERO SHOT CLASSIFIER NEEDS CHANGING LATER -----------
 def zeroshot_classifier(model, classnames, templates):
@@ -41,15 +44,19 @@ def csvWriter(nameOfFile,rowData):
     with open(nameOfFile, mode='a') as currentFile:
             currentFile = csv.writer(currentFile, delimiter=',', quotechar="'", quoting=csv.QUOTE_MINIMAL)
             currentFile.writerow(rowData)
-
+# ---------- CSV WRITER ----------
 
 
 # ----------- MAIN SECTION -----------
 
 def main():
+    # import the classes to main
     global imagenet_classes
+    # make sure that the experiment date and time is stored -- if no name is specified date and time is used
     now = datetime.now()
     defaultcsvname = now.strftime("%d-%m-%Y-%H-%M-%S")+".csv"
+
+    # set up arguments for the script
 
     parser = argparse.ArgumentParser(description="score images against classifiers")
     parser.add_argument('--input-glob', default='CLIP.png',
@@ -63,6 +70,8 @@ def main():
 
     args = parser.parse_args()
 
+    # for whatever reason this does not work without cuda (could be my machine)
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model, preprocess = clip.load("ViT-B/32")
@@ -73,6 +82,8 @@ def main():
         imagenet_classes = imagenet_classes + labels
         # imagenet_classes = labels
     
+    # lets you add a json file of labels
+
     if args.labelFiles is not None:
         labelFile = glob.glob(args.labelFiles)
         with open(labelFile[0],'r') as l:
@@ -120,6 +131,8 @@ def main():
             print(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f} ({i+1})")
             currentCSVrow.append(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f} ({i+1})")
 
+        
+
         # if len(imagenet_classes) > 1000:
         #     print("\nScores for provided labels")
         #     currentCSVrow.append("Scores for provided labels:")
@@ -133,3 +146,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# ----------- MAIN SECTION -----------
