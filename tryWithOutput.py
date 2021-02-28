@@ -58,6 +58,8 @@ def main():
                         help="comma separated list of labels")
     parser.add_argument("--name",default=defaultcsvname,
                         help="name the export folder")
+    parser.add_argument("--labelFiles", default=None,
+                        help="a json of labels")
 
     args = parser.parse_args()
 
@@ -70,6 +72,13 @@ def main():
         labels = args.labels.split(",")
         imagenet_classes = imagenet_classes + labels
         # imagenet_classes = labels
+    
+    if args.labelFiles is not None:
+        labelFile = glob.glob(args.labelFiles)
+        with open(labelFile[0],'r') as l:
+            input_labels = json.load(l)
+        imagenet_classes = imagenet_classes + input_labels
+        print(imagenet_classes)
 
     filename= args.name 
     
@@ -111,12 +120,12 @@ def main():
             print(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f} ({i+1})")
             currentCSVrow.append(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f} ({i+1})")
 
-        if len(imagenet_classes) > 1000:
-            print("\nScores for provided labels")
-            currentCSVrow.append("Scores for provided labels:")
-            for j in range(1000,len(imagenet_classes)):
-                print(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f}")
-                currentCSVrow.append(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f}")
+        # if len(imagenet_classes) > 1000:
+        #     print("\nScores for provided labels")
+        #     currentCSVrow.append("Scores for provided labels:")
+        #     for j in range(1000,len(imagenet_classes)):
+        #         print(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f}")
+        #         currentCSVrow.append(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f}")
         print(currentCSVrow)
         
         csvWriter(filename,currentCSVrow)
