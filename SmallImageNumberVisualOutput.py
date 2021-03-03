@@ -3,15 +3,13 @@ import numpy as np
 import torch
 import clip
 from tqdm import tqdm
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 import json
 import glob
 import os
 import csv
 from datetime import datetime
-
-## IMPORTANT, ONLY RUN THIS IF THE FOLDER OF IMAGES HAS LESS THAN 15 IMAGES IN IT -- THIS CREATES AN IMAGE FILE AS WELL
 
 # --------- this imports the classses by default ---------- turning the template into search classes has not yet been arranged
 
@@ -46,6 +44,51 @@ def csvWriter(nameOfFile,rowData):
             currentFile.writerow(rowData)
 # ---------- CSV WRITER ----------
 
+# ---------- CREATE IMAGE CARD ----------
+
+def imageCard(analysisResults,imagePath,analysispath,currentImagePath):
+    # --------- PATH FOR NEW IMAGE ----------
+    newImagePath = os.path.join(analysispath+imagePath)
+    img = Image.open(currentImagePath)
+    newbasesize = 480
+    bgH = 520
+    bgW = 1000
+    cardBackground = Image.new('RGB', (bgW,bgH),(255,255,255))
+    currentwidth = img.size[0]
+    currentheight = img.size[1]
+
+    if(currentwidth>=currentheight):
+        percent = (newbasesize/float(currentwidth))
+        height = int((float(currentheight)*float(percent)))
+        width = newbasesize
+        offset = (20,int(float((newbasesize-height)/2)+20))
+    else:
+        percent = (newbasesize/float(currentheight))
+        width = int((float(currentwidth)*float(percent)))
+        height = newbasesize
+        offset = (int((float(newbasesize-width)/2)+20),20)
+    
+    img = img.resize((width,height), Image.ANTIALIAS)
+    cardBackground.paste(img,offset)
+
+    writeText = ImageDraw.Draw(cardBackground)
+    fnt = ImageFont.truetype('fonts/OpenSans-Regular.ttf',35)
+    writeText.text((540,20),"filename: "+imagePath,font=fnt,fill=(0,0,0))
+    fnt = ImageFont.truetype('fonts/OpenSans-Italic.ttf', 20)
+    for iteration, index in enumerate(analysisResults):
+        writeText.text((540,(50*iteration)+100),analysisResults[iteration],font=fnt,fill=(0,0,0))
+    # print(indicies)
+
+    cardBackground.save(newImagePath)
+
+def folderMaker(containerPath):
+    # ---------- CREATE FOLDER TO SAVE ANALYSIS TO ----------
+    try:
+        os.mkdir(containerPath)
+    except OSError:
+        print("creation of the directory %s failed" %containerPath)
+    else:
+        print("successfully created the directory %s" %containerPath)
 
 # ----------- MAIN SECTION -----------
 
@@ -92,9 +135,6 @@ def main():
         print(imagenet_classes)
 
     filename= args.name 
-    
-    print("Building labels")
-    zeroshot_weights = zeroshot_classifier(model, imagenet_classes, imagenet_templates)
 
     InputFolder= glob.glob(args.input_glob)
 
@@ -103,14 +143,29 @@ def main():
     
     imagesToProcess = os.listdir(ImagefolderPath)
     print(str(len(imagesToProcess))+ " files found to process")
-    
 
+    # ---------- MAKES FOLDER TO SAVE ANALYSIS TO -----------
+    analysispath = os.path.join(ImagefolderPath+"/analysis/")
+    folderMaker(analysispath)
+    # ---------- FILE PATH TO SAVE ANALYSIS CSV ----------
+    filename = os.path.join(analysispath+filename)
+    
+    print("Building labels")
+    zeroshot_weights = zeroshot_classifier(model, imagenet_classes, imagenet_templates)
+    
     for picture in imagesToProcess:
+        
+        # --------- PATH CONSTRUCTOR FOR PICTURE ANALYSIS ----------
         currentPicture = os.path.basename(picture)
         currentPath = os.path.join(ImagefolderPath+"/"+currentPicture)
-        
+
+
+        # --------- CSV CONSTRUCTOR ----------
+
         currentCSVrow = []
         currentCSVrow.append(currentPicture)
+
+        # ----------- PREPROCESS IMAGE ----------
         
         image = preprocess(Image.open(currentPath)).unsqueeze(0).to(device)
 
@@ -124,14 +179,14 @@ def main():
             probs = logits_per_image.softmax(dim=-1)
 
         values, indices = probs[0].topk(5)
+        results = []
 
         print(f"\nTop scores for file {currentPicture}")
         for i in range(len(indices)):
             j = indices[i]
             print(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f} ({i+1})")
+            results.append(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f} ({i+1})")
             currentCSVrow.append(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f} ({i+1})")
-
-        
 
         # if len(imagenet_classes) > 1000:
         #     print("\nScores for provided labels")
@@ -141,6 +196,8 @@ def main():
         #         currentCSVrow.append(f"{imagenet_classes[j]:>16s} {100 * probs[0][j]:5.2f}")
         print(currentCSVrow)
         
+        imageCard(results,currentPicture,analysispath,currentPath)
+
         csvWriter(filename,currentCSVrow)
         
 
