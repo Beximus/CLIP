@@ -72,7 +72,7 @@ def imageCard(analysisResults,imagePath,analysispath,currentImagePath):
     cardBackground.paste(img,offset)
 
     writeText = ImageDraw.Draw(cardBackground)
-    fnt = ImageFont.truetype('fonts/OpenSans-Regular.ttf',35)
+    fnt = ImageFont.truetype('fonts/OpenSans-Regular.ttf',30)
     writeText.text((540,20),"filename: "+imagePath,font=fnt,fill=(0,0,0))
     fnt = ImageFont.truetype('fonts/OpenSans-Italic.ttf', 20)
     for iteration, index in enumerate(analysisResults):
