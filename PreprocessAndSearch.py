@@ -224,20 +224,39 @@ def main():
 
     # Create folder for preprocess data
     features_path = Path(photos_path)/"features"
-    folderMaker(features_path)
-
+    
+    if (os.path.exists(str(features_path))):
+        print("Image features have already been preprocessed")
+    else:
+        print("Preprocessing Images")
+        folderMaker(features_path)
+        preprocessImages(features_path,photos_files,photos_path)
+        print("Image preprocessing successful")
+    
     # Create folder for analysis images
     analysis_path = Path(photos_path)/"analysis"
-    folderMaker(analysis_path)
-    
-    # Run image Preprocessing
-    preprocessImages(features_path,photos_files,photos_path)
+
+    if (os.path.exists(str(analysis_path))):
+        print("This set has been queried before")
+    else:
+        print("This set has never been queried")
+        folderMaker(analysis_path)
+
+    newAnalysisPath = Path(analysis_path)/search_query
+
+    if (os.path.exists(str(newAnalysisPath))):
+        print("The query: "+search_query+" has been explored before - rerunning analysis")
+    else:
+        print("The query: "+search_query+" has not been explored before")
+        folderMaker(newAnalysisPath)
+
+    print("Results can be found in: "+str(newAnalysisPath))
 
     # Run Image Search
     searchResults = searchImages(features_path,search_query,numberResults)
-    print(searchResults)
+    # print(searchResults)
 
-    drawResults(analysis_path,photos_path,searchResults,search_query)
+    drawResults(newAnalysisPath,photos_path,searchResults,search_query)
 
     
 
