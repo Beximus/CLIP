@@ -1,11 +1,10 @@
-# frankensteined from github
+# all code here adapted from the examples used here: https://github.com/haltakov/natural-language-image-search
 
 from pathlib import Path
 import argparse
 import clip
 import torch
-from PIL import Image
-
+from PIL import Image, ImageDraw, ImageFont
 import math
 import numpy as np
 import pandas as pd
@@ -88,37 +87,7 @@ def preprocessImages(features_path,photos_files,photos_path):
     photo_ids.to_csv(features_path / "photo_ids.csv", index=False)
 
 # ----------- function searches Images -----------
-
-# Main Section
-
-def main():
-    #put main section here
-    parser = argparse.ArgumentParser(description="Pick Best Image from Search")
-    parser.add_argument('--folder', default='CLIP.png', help="input folder")
-    parser.add_argument('--query', default='picture of something', help="search query")
-    args = parser.parse_args()
-
-    search_query = str(args.query)
-    print("Looking for best matches for:" + search_query)
-
-    # Set the path to the photos
-    photos_path = Path(args.folder)
-
-    # List all JPGs in the folder
-    photos_files = list(photos_path.glob("*.jpg"))
-
-    # Print some statistics
-    print(f"Photos found: {len(photos_files)}")
-
-    # Create folder for preprocess data
-    features_path = Path(photos_path)/"features"
-    folderMaker(features_path)
-    
-    # Run image Preprocessing
-    preprocessImages(features_path,photos_files,photos_path)
-
-    # working stuff down here
-
+def searchImages(features_path,search_query,numberResults):
     # Read the photos table
     photos = pd.read_csv(features_path / "photo_ids.csv", sep='\t', header=0)
 
@@ -136,11 +105,141 @@ def main():
     similarities = list((text_features @ photo_features.T).squeeze(0))
     best_photos = sorted(zip(similarities, range(photo_features.shape[0])), key=lambda x: x[0], reverse=True)
 
-    for i in range(3):
+    results = []
+
+    for i in range(numberResults):
         idx = best_photos[i][1]
         photo_id = photo_ids[idx]
+        photo_probability = best_photos[i][0]
+        result =[photo_id,photo_probability]
+        results.append(result)
+    
+    return results
 
-        print(photo_id)
+
+def resizeImage(imagePath,newImagePath):
+    BaseSize = 720
+    img = Image.open(imagePath)
+    curWidth = img.size[0]
+    curHeight = img.size[1]
+    if(curWidth>=curHeight):
+        percent = (BaseSize/float(curWidth))
+        height = int((float(curHeight)*float(percent)))
+        width = BaseSize
+    else:
+        percent = (BaseSize/float(curHeight))
+        width = int((float(curWidth)*float(percent)))
+        height = BaseSize
+    
+    resized = img.resize((width,height), Image.ANTIALIAS)
+    resized.save(newImagePath)
+
+
+# draw search results document
+
+def drawResults(analysis_path,photos_path,searchResults,search_query):
+    documentLength = 50+(770*len(searchResults))
+    documentWidth = 820
+    analysisResultsPath = Path(analysis_path)/"analysisResults.jpg"
+    res = Image.new('RGB',(documentWidth,documentLength),(255,255,255))
+    writeText = ImageDraw.Draw(res)
+    fnt = ImageFont.truetype('fonts/OpenSans-Regular.ttf',25)
+    writeText.text((50,10), "Query: "+search_query, font=fnt, fill=(0,0,0))
+    for indx, pictures in enumerate(searchResults):
+        newname = "resized_"+str(pictures[1])+"_"+str(pictures[0])
+        imagePath = Path(photos_path)/pictures[0]
+        newImagePath = Path(analysis_path)/newname
+        resizeImage(imagePath,newImagePath)
+        offset = 50+(770*indx)
+        textoffset = 770+(770*indx)
+        smallerPicture = Image.open(newImagePath)
+        yoffset = smallerPicture.size[1]
+        yoffset = int((720 - yoffset)/2)
+        res.paste(smallerPicture,(50,offset+yoffset))
+        fnt = ImageFont.truetype('fonts/OpenSans-Regular.ttf',12)
+        writeText.text((50,textoffset),str(indx+1)+". filename: "+str(pictures[0])+" , Probability: "+ str(float(100*pictures[1]))+"%",font=fnt,fill=(0,0,0))
+    
+    res.save(analysisResultsPath)
+
+    
+# def imageCard(analysisResults,imagePath,analysispath,currentImagePath):
+#     # --------- PATH FOR NEW IMAGE ----------
+#     newImagePath = os.path.join(analysispath+imagePath)
+#     img = Image.open(currentImagePath)
+#     newbasesize = 480
+#     bgH = 520
+#     bgW = 1000
+#     cardBackground = Image.new('RGB', (bgW,bgH),(255,255,255))
+#     currentwidth = img.size[0]
+#     currentheight = img.size[1]
+
+#     if(currentwidth>=currentheight):
+#         percent = (newbasesize/float(currentwidth))
+#         height = int((float(currentheight)*float(percent)))
+#         width = newbasesize
+#         offset = (20,int(float((newbasesize-height)/2)+20))
+#     else:
+#         percent = (newbasesize/float(currentheight))
+#         width = int((float(currentwidth)*float(percent)))
+#         height = newbasesize
+#         offset = (int((float(newbasesize-width)/2)+20),20)
+    
+#     img = img.resize((width,height), Image.ANTIALIAS)
+#     cardBackground.paste(img,offset)
+
+#     writeText = ImageDraw.Draw(cardBackground)
+#     fnt = ImageFont.truetype('fonts/OpenSans-Regular.ttf',30)
+#     writeText.text((540,20),"filename: "+imagePath,font=fnt,fill=(0,0,0))
+#     fnt = ImageFont.truetype('fonts/OpenSans-Italic.ttf', 20)
+#     for iteration, index in enumerate(analysisResults):
+#         writeText.text((540,(50*iteration)+100),analysisResults[iteration],font=fnt,fill=(0,0,0))
+#     # print(indicies)
+
+#     cardBackground.save(newImagePath)
+# Main Section
+
+def main():
+    #put main section here
+    parser = argparse.ArgumentParser(description="Pick Best Image from Search")
+    parser.add_argument('--folder', default='CLIP.png', help="input folder")
+    parser.add_argument('--query', default='picture of something', help="search query")
+    parser.add_argument('--matches', default=3, help ="number of matches wanted")
+    args = parser.parse_args()
+
+    # set search query
+    search_query = str(args.query)
+    print("Looking for best matches for: " + search_query)
+
+    # Set the path to the photos
+    photos_path = Path(args.folder)
+
+    # set how many matches should be returned
+    numberResults = int(args.matches)
+
+    # List all JPGs in the folder
+    photos_files = list(photos_path.glob("*.jpg"))
+
+    # Print some statistics
+    print(f"Photos found: {len(photos_files)}")
+
+    # Create folder for preprocess data
+    features_path = Path(photos_path)/"features"
+    folderMaker(features_path)
+
+    # Create folder for analysis images
+    analysis_path = Path(photos_path)/"analysis"
+    folderMaker(analysis_path)
+    
+    # Run image Preprocessing
+    preprocessImages(features_path,photos_files,photos_path)
+
+    # Run Image Search
+    searchResults = searchImages(features_path,search_query,numberResults)
+    print(searchResults)
+
+    drawResults(analysis_path,photos_path,searchResults,search_query)
+
+    
 
 
 
