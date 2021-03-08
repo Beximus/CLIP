@@ -1,4 +1,4 @@
-# all code here adapted from the examples used here: https://github.com/haltakov/natural-language-image-search
+# some code here adapted from the examples used here: https://github.com/haltakov/natural-language-image-search
 
 from pathlib import Path
 import argparse
@@ -9,6 +9,7 @@ import math
 import numpy as np
 import pandas as pd
 import os
+from datetime import datetime
 
 # Load the open CLIP model
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -116,6 +117,7 @@ def searchImages(features_path,search_query,numberResults):
     
     return results
 
+# image resizer 
 
 def resizeImage(imagePath,newImagePath):
     BaseSize = 720
@@ -161,41 +163,23 @@ def drawResults(analysis_path,photos_path,searchResults,search_query):
     
     res.save(analysisResultsPath)
 
-    
-# def imageCard(analysisResults,imagePath,analysispath,currentImagePath):
-#     # --------- PATH FOR NEW IMAGE ----------
-#     newImagePath = os.path.join(analysispath+imagePath)
-#     img = Image.open(currentImagePath)
-#     newbasesize = 480
-#     bgH = 520
-#     bgW = 1000
-#     cardBackground = Image.new('RGB', (bgW,bgH),(255,255,255))
-#     currentwidth = img.size[0]
-#     currentheight = img.size[1]
+def writeCSV(searchResults,csvsavepath):
+    container = []
+    images = []
+    probabilities = []
+    for results in searchResults:
+        images.append(results[0])
+        probabilities.append(results[1])
+    container.append(images)
+    container.append(probabilities)
+    analysis = { 'Images': images, 'Probabilities': probabilities}
+    df = pd.DataFrame(analysis, columns=['Images','Probabilities'])
+    print(df)
+    df.to_csv(csvsavepath,index = False, header=True)
 
-#     if(currentwidth>=currentheight):
-#         percent = (newbasesize/float(currentwidth))
-#         height = int((float(currentheight)*float(percent)))
-#         width = newbasesize
-#         offset = (20,int(float((newbasesize-height)/2)+20))
-#     else:
-#         percent = (newbasesize/float(currentheight))
-#         width = int((float(currentwidth)*float(percent)))
-#         height = newbasesize
-#         offset = (int((float(newbasesize-width)/2)+20),20)
-    
-#     img = img.resize((width,height), Image.ANTIALIAS)
-#     cardBackground.paste(img,offset)
 
-#     writeText = ImageDraw.Draw(cardBackground)
-#     fnt = ImageFont.truetype('fonts/OpenSans-Regular.ttf',30)
-#     writeText.text((540,20),"filename: "+imagePath,font=fnt,fill=(0,0,0))
-#     fnt = ImageFont.truetype('fonts/OpenSans-Italic.ttf', 20)
-#     for iteration, index in enumerate(analysisResults):
-#         writeText.text((540,(50*iteration)+100),analysisResults[iteration],font=fnt,fill=(0,0,0))
-#     # print(indicies)
 
-#     cardBackground.save(newImagePath)
+
 # Main Section
 
 def main():
@@ -255,6 +239,10 @@ def main():
     # Run Image Search
     searchResults = searchImages(features_path,search_query,numberResults)
     # print(searchResults)
+    csvsavepath = search_query+"_results.csv" 
+    csvsavepath = Path(newAnalysisPath)/csvsavepath
+
+    writeCSV(searchResults,csvsavepath)
 
     drawResults(newAnalysisPath,photos_path,searchResults,search_query)
 
