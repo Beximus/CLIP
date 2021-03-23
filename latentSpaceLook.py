@@ -110,6 +110,10 @@ def searchImages(features_path,search_query,numberResults):
     similarities = list((text_features @ photo_features.T).squeeze(0))
     best_photos = sorted(zip(similarities, range(photo_features.shape[0])), key=lambda x: x[0], reverse=True)
 
+    print(best_photos)
+    print("\n now we list the similiarities: \n")
+    print(similarities)
+
     results = []
 
     for i in range(numberResults):
