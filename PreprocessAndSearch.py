@@ -202,7 +202,7 @@ def main():
 
     # List all JPGs in the folder
     photos_files = list(photos_path.glob("*.jpg"))
-
+    #sometimes has to be changed to png
     # Print some statistics
     print(f"Photos found: {len(photos_files)}")
 
