@@ -13,7 +13,9 @@ from datetime import datetime
 
 # Load the open CLIP model
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model, preprocess = clip.load("ViT-B/32", device=device)
+model, preprocess = clip.load("ViT-B/32", device=device) 
+
+# ----------- function computes clip vectors from a folder of images-----------
 
 # Function that computes the feature vectors for a batch of images
 def compute_clip_features(photos_batch):
@@ -30,6 +32,24 @@ def compute_clip_features(photos_batch):
 
     # Transfer the feature vectors back to the CPU and convert to numpy
     return photos_features.cpu().numpy()
+
+# ----------- function computes clip vectors from a single file -----------
+
+# Function that computes the feature vectors for a batch of images
+def compute_clip_features_single(picture):
+    # Load in the picture
+    photo = Image.open(picture)
+    
+    # Preprocess all photos
+    picture_preprocessed = torch.stack([preprocess(photo)]).to(device)
+
+    with torch.no_grad():
+        # Encode the picture to compute the feature vectors and normalize
+        pictureFeatures = model.encode_image(picture_preprocessed)
+        pictureFeatures /= pictureFeatures.norm(dim=1,keepdim=True)
+    
+    # Transfer the feature vectors to the CPU and convert to numpy
+    return pictureFeatures.cpu().numpy()
 
 # ----------- function creates folders to store data -----------
 
@@ -90,6 +110,7 @@ def preprocessImages(features_path,photos_files,photos_path):
     # save features as a csv for latent space
 
     pd.DataFrame(features).to_csv("testingFeaturesTesting.csv")
+    
 
 # ----------- function searches Images -----------
 def searchImages(features_path,search_query,numberResults):
@@ -109,11 +130,7 @@ def searchImages(features_path,search_query,numberResults):
     text_features = text_encoded.cpu().numpy()
     similarities = list((text_features @ photo_features.T).squeeze(0))
     best_photos = sorted(zip(similarities, range(photo_features.shape[0])), key=lambda x: x[0], reverse=True)
-
-    print(best_photos)
-    print("\n now we list the similiarities: \n")
-    print(similarities)
-
+    
     results = []
 
     for i in range(numberResults):
@@ -124,6 +141,26 @@ def searchImages(features_path,search_query,numberResults):
         results.append(result)
     
     return results
+
+def distanceFinder(features_path,search_query,numberResults,compare_features):
+    #aksrjfnaskdjfnask
+    referencePhotos = pd.read_csv(features_path/"photo_ids.csv",sep='\t', header=0)
+    referenceFeatures = np.load(features_path/"features.npy")
+    referenceIds = pd.read_csv(features_path/"photo_ids.csv")
+    referenceIds = list(referenceIds['photo_id'])
+    comparisonPath = Path(compare_features,"preprocessed_feature_compare.npy")
+    comparisonPicture = np.load(comparisonPath)
+    comparisonValues = []
+    print(len(referenceFeatures))
+    for item in referenceFeatures:
+        #asdlfkasdlfkmas
+        dist = np.linalg.norm(comparisonPicture-item)
+        comparisonValues.append(dist)
+    print(comparisonValues)
+        
+        
+        
+    
 
 # image resizer 
 
@@ -186,6 +223,20 @@ def writeCSV(searchResults,csvsavepath):
     df.to_csv(csvsavepath,index = False, header=True)
 
 
+def comparator(compare_path,compare_features):
+    #stuff goes here
+    comparison = compute_clip_features_single(compare_path)
+    # print(compare_features)
+    if (os.path.exists(str(compare_features))):
+        print("this image has been compared before")
+    else:
+        folderMaker(compare_features)
+    new_compare_features = Path(compare_features,"preprocessed_feature_compare.npy")
+    # print(new_compare_features)
+    # print(comparison)
+    compared_preprocessed_features = compute_clip_features_single(compare_path)
+    np.save(new_compare_features,compared_preprocessed_features)
+
 
 
 # Main Section
@@ -229,15 +280,21 @@ def main():
         print("Image preprocessing successful")
 
 
-    # Euclidean stuff to check against
-    if (args.compareImage=="true"):
-        #compare image
-        compare_path = Path(args.compareFile)
-        print(compare_path)
-        feeet = compute_clip_features(compare_path)
-        np.save("comparisonFeaturesTest.npy",feeet)
-        print(feeet)
+    
 
+    # Preprocessing comparison image if there is one
+    if (args.compareImage=="true"):
+        comparator_path = Path(photos_path)/"comparison"
+        if(os.path.exists(str(comparator_path))):
+            print("Comparisons have been run on this dataset before")
+        else:
+            print("Comparing Image results for the first time")
+            folderMaker(comparator_path)
+        compare_path = Path(args.compareFile)
+        pathstem = compare_path.stem
+        compare_features = Path(comparator_path,pathstem)
+        comparator(compare_path,compare_features)
+        distanceFinder(features_path,search_query,numberResults,compare_features)
 
              
     
