@@ -152,10 +152,12 @@ def distanceFinder(features_path,search_query,numberResults,compare_features):
     comparisonPicture = np.load(comparisonPath)
     comparisonValues = []
     print(len(referenceFeatures))
-    for item in referenceFeatures:
-        #asdlfkasdlfkmas
+    counter = 0
+    for count, item in enumerate(referenceFeatures):
         dist = np.linalg.norm(comparisonPicture-item)
-        comparisonValues.append(dist)
+        keepImageinfo = [dist,referenceIds[count]]
+        comparisonValues.append(keepImageinfo)
+    comparisonValues.sort(key=lambda x:x[0], reverse=True)
     print(comparisonValues)
         
         
